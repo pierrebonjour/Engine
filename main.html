@@ -1,0 +1,59 @@
+<script src="Engine.js"></script>
+<script>
+
+shootInProgress = false;
+
+E = new Engine();
+	//E.log  = true;
+	var mario = E.createImg("mario.png",1812,2261);
+	
+
+initDate = +new Date();
+
+setInterval(maBoucle,0);
+setTimeout(maBoucle,0);
+
+function maBoucle(){
+
+E.rectangle(E.winW/2,E.winH/2,E.winW,E.winH,"blue",0,"blue");
+intermediateD = +new Date();
+//console.log("FPS : " + Math.trunc(1000/(intermediateD-initDate)));
+initDate = intermediateD;
+//thisE.private_ctx.globalCompositeOperation = "copy";
+
+mario.setHeight(E.winMin/3);
+console.log(mario.H);
+
+mario.setCenter(E.mouseX,E.winH-mario.H/2);
+//console.log(E.mouseD);
+
+if(E.mouseD)
+{
+console.log("mouseD");
+	if (!shootInProgress)
+	{
+		shootInProgress=true;
+		yMissile  = E.winH-mario.H;
+		xMissile = E.mouseX;
+	}
+}
+	if(shootInProgress)
+	{
+	for (i=0;i<5;i++)
+	{
+	//On devrait pouvoir faire une fonction de trainée sans soucis !
+	console.log("circle is being called");
+		E.circle(xMissile,yMissile+i*20,11,"rgba(0,0,0,0)",0,"rgba(255,0,0,"+(1/(i+1))+")");
+		E.circle(xMissile,yMissile,10,"red",0,"red");
+	}
+		yMissile -=20;
+		if(yMissile<0) shootInProgress=false;
+	}
+
+
+
+mario.draw();
+
+}
+
+</script>

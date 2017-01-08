@@ -1,0 +1,29 @@
+<script src="Engine.js"></script>
+<script>
+
+shootInProgress = false;
+
+E = new Engine();
+	//E.log  = true;
+	var marioMap = E.createImg("mario.png",1812,2261);
+
+
+setInterval(maBoucle,0);
+setTimeout(maBoucle,0);
+
+function maBoucle(){
+
+E.rectangle(E.winW/2,E.winH/2,E.winW,E.winH,"blue",0,"blue");
+
+marioMap.setHeight(E.winMin/3).setCenter(E.winW/10+marioMap.W/2,E.winH/10+marioMap.H/2);
+
+
+marioMap.extractImgArea(E.mouseX-(marioMap.X-marioMap.W/2),E.mouseY-(marioMap.Y-marioMap.H/2),E.winW/20,E.winH/20).setSize(E.winW,E.winH).setCenter(E.winW/2,E.winH/2).draw();
+
+marioMap.draw();
+
+E.rectangle(E.mouseX,E.mouseY,E.winW/20,E.winH/20,"red",5);
+
+}
+
+</script>
