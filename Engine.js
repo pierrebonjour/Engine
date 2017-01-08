@@ -16,6 +16,10 @@
 //E.createImg("mario.png","E.mD",0.5);
 //winHen I want to resize an image I resize it... I dont kwnow how I do that by the way... I could do E.resize(mario,"E.mD",0.8);
 
+//JE NE VEUX PAS ACCEDER AU CANVAS NI AU CONTEXT DIRECTEMENT juste parce que je préfère empiler les fonctions d'abord mais sinon je peux
+//récup le this et staker la fonction.
+
+
 
 
 function Engine()
@@ -23,10 +27,6 @@ function Engine()
 	var thisE = this;
 	this.log = false;
 	this.loaded = true;
-	this.mouseX;
-	this.mouseY;
-	this.mouseD = false;
-	this.mouseU = false;
 	this.winW = window.innerWidth;
 	this.winH = window.innerHeight;
 	this.winMin = (window.innerWidth>window.innerHeight)?window.innerHeight:window.innerWidth;
@@ -37,14 +37,11 @@ function Engine()
 	this.private_documentBody;
 	this.private_functionsToCall = [];
 	this.private_elementsToLoad = [];
-	this.private_perspective = Number.MAX_SAFE_INTEGER;
+	this.perspective = Number.MAX_SAFE_INTEGER;
 	
 	
-	//setting up events
-	document.onmousemove = function(e){thisE.private_onMove(e);};
-	document.onmouseenter = function(e){thisE.private_onMove(e);};
-	document.onmousedown = function(){thisE.private_mouseD(thisE)};
-	document.onmouseup = function(){thisE.private_mouseU(thisE)};
+	//setting up mouse events
+	var m = new E_Mouse(this);
 }
 
 //Public
@@ -53,23 +50,22 @@ Engine.prototype.createImg = function(src,initialWidth,initialHeight){
 	return new E_Img(src,initialWidth,initialHeight, this);
 }
 
+Engine.prototype.createCyl = function(xCenter, yCenter, zBase, height, radius, color, startAngle, endAngle,delimitEdges){
+	return new E_Cyl(xCenter, yCenter, zBase, height, radius, color, startAngle, endAngle,delimitEdges,this);
+}
 
 Engine.prototype.rectangle = function(x,y,width,height,borderColor,lineWidth,filledColor){	
 	var thisE = this;
-	this.private_StartOrStackOrStartGraphics("loaded",function(){
+	this.private_StartOrStackOrStartGraphics(function(){
 		thisE.private_rectangle(x,y,width,height,borderColor,lineWidth,filledColor);
 	});
 }
 
 Engine.prototype.circle = function(x,y,radius,borderColor,lineWidth,filledColor){
 	var thisE = this;
-	this.private_StartOrStackOrStartGraphics("loaded",function(){
+	this.private_StartOrStackOrStartGraphics(function(){
 		thisE.private_circle(x,y,radius,borderColor,lineWidth,filledColor);
 	});
-}
-
-Engine.prototype.setCamZ = function(z){
-	this.private_perspective = z;
 }
 
 //Private
@@ -98,6 +94,11 @@ Engine.prototype.private_circle = function(x,y,radius,borderColor,lineWidth,fill
 }
 
 Engine.prototype.private_StartOrStackOrStartGraphics = function(elementToWait, functionToCall){
+	if(typeof functionToCall === "undefined")
+	{
+		functionToCall = elementToWait;
+		elementToWait = "loaded";
+	}
 	if (!this.private_graphicsAreReady) this.private_setUpGraphics();
 	if ((this.private_elementsToLoad.length==0) && ((elementToWait.loaded) || elementToWait === "loaded")){
 		functionToCall();
@@ -157,31 +158,6 @@ Engine.prototype.private_setUpGraphics = function()
 	if (this.log) console.log("body for graphics has been created");
 }
 
-Engine.prototype.private_onMove = function(e){
-	e = e || window.event;
-	if (e.pageX == null && e.clientX != null ) 
-	{
-		var html = document.documentElement;
-		var body = document.body;
-		e.pageX = e.clientX + (html.scrollLeft || body && body.scrollLeft || 0);
-		e.pageX -= html.clientLeft || 0;
-		e.pageY = e.clientY + (html.scrollTop || body && body.scrollTop || 0);
-		e.pageY -= html.clientTop || 0;
-	}
-	this.mouseX = e.pageX;
-	this.mouseY = e.pageY;
-}
-
-Engine.prototype.private_mouseD = function(thisE){
-	thisE.mouseD = true;
-	thisE.mouseU = false;
-}
-
-Engine.prototype.private_mouseU = function(thisE){
-	thisE.mouseD = false;
-	thisE.mouseU = true;
-}
-
 Engine.prototype.private_setCanvasToScreenSize = function(){
 	this.private_canvas.width = window.innerWidth;
 	this.private_canvas.height = window.innerHeight;
@@ -192,9 +168,10 @@ Engine.prototype.private_setCanvasToScreenSize = function(){
 	if (this.log) console.log("canvas size was modified");
 }
 
-Engine.prototype.private_projectDim = function(dim,z){return (dim*this.private_perspective)/(this.private_perspective-z);}
+Engine.prototype.private_projectDim = function(dim,z){return (dim*this.perspective)/(this.perspective-z);}
 Engine.prototype.private_projectX = function(dim,z){return this.private_projectDim(dim-this.winW/2,z) + this.winW/2;}
 Engine.prototype.private_projectY = function(dim,z){return this.private_projectDim(dim-this.winH/2,z) + this.winH/2;}
+Engine.prototype.private_projectXY = function(x,y,z){return [this.private_projectX(x,z),this.private_projectY(y,z)];}
 
 Engine.prototype.private_setShapeColors = function(borderColor,lineWidth,filledColor,z)
 {
@@ -218,12 +195,7 @@ Engine.prototype.private_setShapeColors = function(borderColor,lineWidth,filledC
 }
 
 
-
-
-
-
-
-
+//******************************IMAGES***************************************************************************************
 
 
 function E_Img(a0,a1,a2,a3,a4)
@@ -261,14 +233,10 @@ function E_Img(a0,a1,a2,a3,a4)
 	}
 }
 
-
-
-//******************************IMAGES***************************************************************************************
-
 E_Img.prototype.draw = function(){
 	var thisI = this;
 	var thisE = this.parentHandler;
-	this.parentHandler.private_StartOrStackOrStartGraphics("loaded",function(img,x,y,dWidth,dHeight,sx, sy, sWidth, sHeight){
+	this.parentHandler.private_StartOrStackOrStartGraphics(function(img,x,y,dWidth,dHeight,sx, sy, sWidth, sHeight){
 		return function(){thisI.private_draw(thisE,img,x,y, dWidth, dHeight,sx, sy, sWidth, sHeight);};
 	}(this.img,this.X,this.Y,this.W,this.H,this.private_sx, this.private_sy, this.private_sWidth, this.private_sHeight));
 	return this;
@@ -339,5 +307,277 @@ E_Img.prototype.private_draw = function(thisE,img,x,y, dWidth, dHeight,sx, sy, s
 	if (thisE.log) console.log("image has been drawn");
 }
 
+//******************************MOUSE EVENTS***************************************************************************************
+
+function E_Mouse(parentHandler){
+	var thisM = this;
+	parentHandler.mouseX;
+	parentHandler.mouseY;
+	parentHandler.mouseD = false;
+	parentHandler.mouseU = false;
+	
+	document.onmousemove = function(e){thisM.private_onMove(e,parentHandler);};
+	document.onmouseenter = function(e){thisM.private_onMove(e,parentHandler);};
+	document.onmousedown = function(){thisM.private_mouseD(parentHandler)};
+	document.onmouseup = function(){thisM.private_mouseU(parentHandler)};
+}
+
+E_Mouse.prototype.private_onMove = function(e,parentHandler){
+	e = e || window.event;
+	if (e.pageX == null && e.clientX != null ) 
+	{
+		var html = document.documentElement;
+		var body = document.body;
+		e.pageX = e.clientX + (html.scrollLeft || body && body.scrollLeft || 0);
+		e.pageX -= html.clientLeft || 0;
+		e.pageY = e.clientY + (html.scrollTop || body && body.scrollTop || 0);
+		e.pageY -= html.clientTop || 0;
+	}
+	parentHandler.mouseX = e.pageX;
+	parentHandler.mouseY = e.pageY;
+}
+
+E_Mouse.prototype.private_mouseD = function(thisE){
+	thisE.mouseD = true;
+	thisE.mouseU = false;
+}
+
+E_Mouse.prototype.private_mouseU = function(thisE){
+	thisE.mouseD = false;
+	thisE.mouseU = true;
+}
 
 
+//******************************E_Cyl***************************************************************************************
+
+
+function E_Cyl(xCenter, yCenter, zBase, height, radius, color, startAngle, endAngle,delimitEdges, parentHandler) {
+	this.parentHandler = parentHandler;
+    this.xCenter = xCenter;
+    this.yCenter = yCenter;
+    this.zBase = zBase;
+    this.height = height;
+    this.radius = radius;
+    this.color = color;
+
+    this.startAngle = (typeof startAngle === "undefined") ? 0 : this.keepBetween2PI(startAngle);
+    this.endAngle = (typeof endAngle === "undefined") ? Math.PI * 2 : this.keepBetween2PI(endAngle);
+
+    if (!this.isAcute(this.startAngle,this.endAngle))
+    {
+        this.startAngle = 0;
+        this.endAngle = Math.PI * 2;
+    }
+
+    this.delimitEdges = (typeof delimitEdges === "undefined") ? true : delimitEdges;
+
+    this.zTop = zBase + height;
+};
+
+E_Cyl.prototype.addBrickTexture = function (brickHeight, brickWidth, nbShiftedLayers, brickColor) {
+    this.brickColor = brickColor;
+    this.nbBricksPerLayer = Math.floor((2*Math.PI*this.radius)/brickWidth);
+    this.brickAnglesArrays = new Array();
+    this.brickHeightArray = new Array();
+
+    var brickAngle = 2 * Math.PI / this.nbBricksPerLayer;
+
+    var arrayIndex = 0;
+    for (var i = this.zTop; i >= this.zBase; i = i - brickHeight)
+    {
+        this.brickHeightArray[arrayIndex] = i;
+        arrayIndex++;
+    }
+    this.nbBrickLayers = arrayIndex;
+
+    for (var i = 0; i < this.nbBrickLayers; i++) {
+        this.brickAnglesArrays[i] = new Array();
+        var currentOffset = (brickAngle / nbShiftedLayers)*i;
+        var arrayIndex = 0;
+        for (var j = currentOffset; j < Math.PI * 2 + currentOffset; j = j + brickAngle) {
+            var currentAngle = this.keepBetween2PI(j);
+            if (this.isInBetweenClockwiseArc(this.startAngle,this.endAngle,currentAngle))
+            {
+            this.brickAnglesArrays[i][arrayIndex] = currentAngle;
+            arrayIndex++;
+            }
+        }
+    }
+	return this;
+};
+
+E_Cyl.prototype.drawBrickTexture = function () {
+    if (this.visArc == null) return;
+    var currentBaseRadius = this.parentHandler.private_projectDim(this.radius,this.brickHeightArray[0]);
+    var currentBaseCenter = this.parentHandler.private_projectXY(this.xCenter, this.yCenter, this.brickHeightArray[0]);
+
+    var ctx = this.parentHandler.private_ctx;
+    ctx.strokeStyle = this.brickColor;
+
+    for (var i = 0; i < this.nbBrickLayers-1; i++)
+    {
+        var currentTopRadius = currentBaseRadius;
+        var currentTopCenter = currentBaseCenter;
+
+        var currentBaseRadius = this.parentHandler.private_projectDim(this.radius,this.brickHeightArray[i+1]);
+        var currentBaseCenter = this.parentHandler.private_projectXY(this.xCenter, this.yCenter, this.brickHeightArray[i+1]);
+
+        for (var j=0; j<this.nbBricksPerLayer;j++)
+        {
+            var currentArc = this.brickAnglesArrays[i][j];
+
+            if (this.isInBetweenClockwiseArc(this.visArc[0], this.visArc[1],currentArc))
+            {
+                var topPoint = this.pointOnArc(currentTopCenter[0], currentTopCenter[1], currentTopRadius, currentArc);
+                var bottomPoint = this.pointOnArc(currentBaseCenter[0], currentBaseCenter[1], currentBaseRadius, currentArc);
+                ctx.beginPath();
+                ctx.moveTo(topPoint[0], topPoint[1]);
+                ctx.lineTo(bottomPoint[0], bottomPoint[1]);
+                ctx.stroke();
+            }
+        }
+
+        if (i != 0) {
+            ctx.beginPath();
+            ctx.arc(currentTopCenter[0], currentTopCenter[1], currentTopRadius, this.visArc[0], this.visArc[1]);
+            ctx.stroke();
+        }
+
+    }
+	return this;
+};
+
+
+
+E_Cyl.prototype.draw = function () {
+
+    this.visArc = this.visibleArc(this.xCenter, this.yCenter, this.radius);
+
+    if (this.visArc == null) return;
+
+    var xTop = this.parentHandler.private_projectX(this.xCenter, this.zTop);
+    var yTop = this.parentHandler.private_projectY(this.yCenter, this.zTop);
+    var radiusTop = this.parentHandler.private_projectDim(this.radius, this.zTop);
+    
+    var xBase = this.parentHandler.private_projectX(this.xCenter, this.zBase);
+    var yBase = this.parentHandler.private_projectY(this.yCenter, this.zBase);
+    var radiusBase = this.parentHandler.private_projectDim(this.radius, this.zBase);
+
+    if (this.isAcute(this.startAngle, this.endAngle)) {
+        this.visArc = this.intersectAcuteClockwiseArcs(this.visArc[0], this.visArc[1],
+                                                            this.startAngle, this.endAngle);
+        if (this.visArc == null) return;
+    }
+    var startPointBase = this.pointOnArc(xBase, yBase, radiusBase, this.visArc[0]);
+    var endPointBase = this.pointOnArc(xBase, yBase, radiusBase, this.visArc[1]);
+
+    var startPointTop = this.pointOnArc(xTop, yTop, radiusTop, this.visArc[0]);
+    var endPointTop = this.pointOnArc(xTop, yTop, radiusTop, this.visArc[1]);
+
+
+
+    var ctx = this.parentHandler.private_ctx;
+	if(typeof this.color !== "undefined") ctx.fillStyle = this.color;
+    ctx.strokeStyle = "black";
+
+
+    if (this.delimitEdges) {
+        ctx.beginPath();
+        ctx.arc(xTop, yTop, radiusTop, this.visArc[0], this.visArc[1]);
+        ctx.arc(xBase, yBase, radiusBase, this.visArc[1], this.visArc[0], true);
+        ctx.closePath();
+        ctx.stroke();
+        if(typeof this.color !== "undefined") ctx.fill();
+    } else {
+
+        ctx.beginPath();
+        ctx.arc(xTop, yTop, radiusTop, this.visArc[0], this.visArc[1]);
+        ctx.arc(xBase, yBase, radiusBase, this.visArc[1], this.visArc[0], true);
+        if(typeof this.color !== "undefined") ctx.fill();
+
+        ctx.beginPath();
+        ctx.arc(xTop, yTop, radiusTop, this.visArc[0], this.visArc[1]);
+        if (this.visArc[1] != this.endAngle)
+            ctx.lineTo(endPointBase[0], endPointBase[1]);
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.arc(xBase, yBase, radiusBase, this.visArc[1], this.visArc[0], true);
+        if (this.visArc[0] != this.startAngle)
+            ctx.lineTo(startPointTop[0], startPointTop[1]);
+        ctx.stroke();
+
+    }
+	return this;
+};
+
+
+E_Cyl.prototype.keepBetween2PI = function (arc) {
+    if (arc < 0) return arc + Math.PI * 2;
+    if (arc > Math.PI * 2) return arc - Math.PI * 2;
+    return arc;
+};
+
+E_Cyl.prototype.pointOnArc = function (xCenter, yCenter, radius, arc) {
+    return [Math.cos(arc) * radius + xCenter, Math.sin(arc)*radius + yCenter];
+};
+
+E_Cyl.prototype.isInBetweenClockwiseArc = function (arcStart, arcEnd, arc) {
+    if (arcStart < arcEnd)
+    {
+        return (arc>=arcStart && arc<=arcEnd)?true:false
+    }
+    else
+    {
+        return (arc >= arcStart || arc <= arcEnd) ? true : false
+    }
+
+};
+
+E_Cyl.prototype.intersectAcuteClockwiseArcs = function (arcStart1, arcEnd1, arcStart2, arcEnd2) {
+    if (this.isInBetweenClockwiseArc(arcStart1, arcEnd1, arcStart2)) 
+        var startAngle=arcStart2;
+    else if (this.isInBetweenClockwiseArc(arcStart2, arcEnd2, arcStart1)) 
+        var startAngle = arcStart1;
+
+    else if ((typeof startAngle === "undefined")) return null;
+
+    if (this.isInBetweenClockwiseArc(arcStart1, arcEnd1, arcEnd2)) 
+        return [startAngle,arcEnd2];
+    if (this.isInBetweenClockwiseArc(arcStart2, arcEnd2, arcEnd1)) 
+        return [startAngle,arcEnd1];
+};
+
+E_Cyl.prototype.differenceBetweenTwoAngles = function (arcStart, arcEnd) {
+    var diff = arcEnd-arcStart;
+    if (diff > 0) return diff;
+    if (diff < 0) return (Math.PI * 2 + diff);
+};
+
+E_Cyl.prototype.isAcute = function (arcStart, arcEnd) {
+    return (this.differenceBetweenTwoAngles(arcStart,arcEnd) <= Math.PI) ? true : false;
+};
+
+E_Cyl.prototype.distanceAndArcWithCameraIso = function (x,y) {
+    var xDiff = x - this.parentHandler.winW/2;
+    var yDiff = y - this.parentHandler.winH/2;
+    return this.distanceAndArcFromDiffs(xDiff, yDiff);
+};
+
+E_Cyl.prototype.distanceAndArcFromDiffs = function (xDiff, yDiff) {
+    if (yDiff == 0) return (xDiff >= 0) ? [xDiff, Math.PI] : [-xDiff, 0];
+    return [Math.sqrt(xDiff * xDiff + yDiff * yDiff),
+        (yDiff > 0) ? (3 / 2) * Math.PI - Math.atan(xDiff / yDiff) : (1 / 2) * Math.PI - Math.atan(xDiff / yDiff)];
+};
+
+E_Cyl.prototype.visibleArc = function (x, y, radius) {
+    var distAndArcCamIso = this.distanceAndArcWithCameraIso(x, y);
+
+    if (distAndArcCamIso[0] <= radius) return null;
+    var rawArc = Math.acos(radius / distAndArcCamIso[0]);
+
+    var startAngle = this.keepBetween2PI(distAndArcCamIso[1] - rawArc);
+    var endAngle = this.keepBetween2PI(distAndArcCamIso[1] + rawArc);
+
+    return [startAngle, endAngle];
+};

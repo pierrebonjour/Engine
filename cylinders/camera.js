@@ -62,6 +62,7 @@ camera.prototype.distanceAndArcWithCameraProjected = function (x, y, z) {
 camera.prototype.distanceAndArcWithCameraIso = function (x,y) {
     var xDiff = x - this.x;
     var yDiff = y - this.y;
+	console.log(this.x);
     return appliedMath.distanceAndArcFromDiffs(xDiff, yDiff);
 };
 
