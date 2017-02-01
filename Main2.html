@@ -21,9 +21,9 @@ function maBoucle(){
 
 E.rectangle(E.winW/2,E.winH/2,E.winW,E.winH,"blue",0,"blue");
 
-var cyl = E.createCyl(E.mouseX, E.mouseY, 0, 100, 50,"yellow");
+var cyl = E.createCyl(E.mouseX, E.mouseY, 0, 100, 50,"yellow",0,Math.PI*1.2);
+cyl.addContour("purple",5,false);
 cyl.addBrickTexture(20,20,3,"red");
-
 cyl.draw();
 cyl.drawBrickTexture();
 

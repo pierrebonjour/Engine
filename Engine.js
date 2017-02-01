@@ -50,8 +50,8 @@ Engine.prototype.createImg = function(src,initialWidth,initialHeight){
 	return new E_Img(src,initialWidth,initialHeight, this);
 }
 
-Engine.prototype.createCyl = function(xCenter, yCenter, zBase, height, radius, color, startAngle, endAngle,delimitEdges){
-	return new E_Cyl(xCenter, yCenter, zBase, height, radius, color, startAngle, endAngle,delimitEdges,this);
+Engine.prototype.createCyl = function(xCenter, yCenter, zBase, height, radius, color, startAngle, endAngle){
+	return new E_Cyl(xCenter, yCenter, zBase, height, radius, color, startAngle, endAngle,this);
 }
 
 Engine.prototype.rectangle = function(x,y,width,height,borderColor,lineWidth,filledColor){	
@@ -351,7 +351,7 @@ E_Mouse.prototype.private_mouseU = function(thisE){
 //******************************E_Cyl***************************************************************************************
 
 
-function E_Cyl(xCenter, yCenter, zBase, height, radius, color, startAngle, endAngle,delimitEdges, parentHandler) {
+function E_Cyl(xCenter, yCenter, zBase, height, radius, color, startAngle, endAngle, parentHandler) {
 	this.parentHandler = parentHandler;
     this.xCenter = xCenter;
     this.yCenter = yCenter;
@@ -369,9 +369,17 @@ function E_Cyl(xCenter, yCenter, zBase, height, radius, color, startAngle, endAn
         this.endAngle = Math.PI * 2;
     }
 
-    this.delimitEdges = (typeof delimitEdges === "undefined") ? true : delimitEdges;
-
     this.zTop = zBase + height;
+	
+	this.visArc = this.visibleArc(this.xCenter, this.yCenter, this.radius);
+
+    if (this.visArc == null) return;
+
+    if (this.isAcute(this.startAngle, this.endAngle)) {
+        this.visArc = this.intersectAcuteClockwiseArcs(this.visArc[0], this.visArc[1],this.startAngle, this.endAngle);
+        if (this.visArc == null) return;
+    }
+	
 };
 
 E_Cyl.prototype.addBrickTexture = function (brickHeight, brickWidth, nbShiftedLayers, brickColor) {
@@ -447,67 +455,66 @@ E_Cyl.prototype.drawBrickTexture = function () {
 	return this;
 };
 
+E_Cyl.prototype.addContour = function (color,size,delimitEdges) {
+	this.addContour = true;
+	this.borderColor = (typeof color === "undefined")?"black":color;
+	this.borderSize = (typeof size === "undefined")?7:size;
+	this.delimitEdges = (typeof delimitEdges === "undefined")?true:delimitEdges;
+}
+
 
 
 E_Cyl.prototype.draw = function () {
-
-    this.visArc = this.visibleArc(this.xCenter, this.yCenter, this.radius);
-
-    if (this.visArc == null) return;
-
-    var xTop = this.parentHandler.private_projectX(this.xCenter, this.zTop);
+	
+	if (this.visArc == null) return;
+	
+	var xTop = this.parentHandler.private_projectX(this.xCenter, this.zTop);
     var yTop = this.parentHandler.private_projectY(this.yCenter, this.zTop);
     var radiusTop = this.parentHandler.private_projectDim(this.radius, this.zTop);
     
     var xBase = this.parentHandler.private_projectX(this.xCenter, this.zBase);
     var yBase = this.parentHandler.private_projectY(this.yCenter, this.zBase);
     var radiusBase = this.parentHandler.private_projectDim(this.radius, this.zBase);
-
-    if (this.isAcute(this.startAngle, this.endAngle)) {
-        this.visArc = this.intersectAcuteClockwiseArcs(this.visArc[0], this.visArc[1],
-                                                            this.startAngle, this.endAngle);
-        if (this.visArc == null) return;
-    }
+	
     var startPointBase = this.pointOnArc(xBase, yBase, radiusBase, this.visArc[0]);
     var endPointBase = this.pointOnArc(xBase, yBase, radiusBase, this.visArc[1]);
 
     var startPointTop = this.pointOnArc(xTop, yTop, radiusTop, this.visArc[0]);
     var endPointTop = this.pointOnArc(xTop, yTop, radiusTop, this.visArc[1]);
 
-
-
     var ctx = this.parentHandler.private_ctx;
 	if(typeof this.color !== "undefined") ctx.fillStyle = this.color;
-    ctx.strokeStyle = "black";
+	
+	//We begin the path
+	ctx.beginPath();
+	ctx.arc(xTop, yTop, radiusTop, this.visArc[0], this.visArc[1]);
+	ctx.arc(xBase, yBase, radiusBase, this.visArc[1], this.visArc[0], true);
+	if(typeof this.color !== "undefined") ctx.fill(); //here we fill if a color has been defined
 
-
-    if (this.delimitEdges) {
-        ctx.beginPath();
-        ctx.arc(xTop, yTop, radiusTop, this.visArc[0], this.visArc[1]);
-        ctx.arc(xBase, yBase, radiusBase, this.visArc[1], this.visArc[0], true);
-        ctx.closePath();
-        ctx.stroke();
-        if(typeof this.color !== "undefined") ctx.fill();
-    } else {
-
-        ctx.beginPath();
-        ctx.arc(xTop, yTop, radiusTop, this.visArc[0], this.visArc[1]);
-        ctx.arc(xBase, yBase, radiusBase, this.visArc[1], this.visArc[0], true);
-        if(typeof this.color !== "undefined") ctx.fill();
-
-        ctx.beginPath();
-        ctx.arc(xTop, yTop, radiusTop, this.visArc[0], this.visArc[1]);
-        if (this.visArc[1] != this.endAngle)
-            ctx.lineTo(endPointBase[0], endPointBase[1]);
-        ctx.stroke();
-
-        ctx.beginPath();
-        ctx.arc(xBase, yBase, radiusBase, this.visArc[1], this.visArc[0], true);
-        if (this.visArc[0] != this.startAngle)
-            ctx.lineTo(startPointTop[0], startPointTop[1]);
-        ctx.stroke();
-
-    }
+	if (typeof this.addContour !== "undefined")
+	{
+		ctx.strokeStyle = this.borderColor;
+		ctx.lineWidth = this.borderSize;
+		if (this.delimitEdges)
+		{
+			ctx.closePath();
+			ctx.stroke();
+		} 
+		else 
+		{
+			ctx.beginPath();
+			ctx.arc(xTop, yTop, radiusTop, this.visArc[0], this.visArc[1]);
+			if (this.visArc[1] != this.endAngle) ctx.lineTo(endPointBase[0], endPointBase[1]);
+			ctx.stroke();
+			ctx.closePath();
+			
+			ctx.beginPath();
+			ctx.arc(xBase, yBase, radiusBase, this.visArc[1], this.visArc[0], true);
+			if (this.visArc[0] != this.startAngle) ctx.lineTo(startPointTop[0], startPointTop[1]);
+			ctx.stroke();
+		}
+	}
+	
 	return this;
 };
 
